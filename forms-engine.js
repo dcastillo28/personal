@@ -17,11 +17,27 @@ catch(err) {
 }
 
 var getFormSize = function(id){
-    return document.getElementsByClassName("studio-ice-container-"+id)[0].offsetHeight;
+    var formSize;
+
+    if(document.getElementsByClassName("studio-ice-container-"+id).length > 0){
+        formSize = document.getElementsByClassName("studio-ice-container-"+id)[0].offsetHeight;
+    }else{
+        formSize = parent.document.getElementsByClassName("studio-ice-container-"+id)[0].offsetHeight;
+    }
+
+    return formSize;
+
 }
 
 var setFormSize = function(height,id){
-    var form = document.getElementsByClassName("studio-ice-container-"+id)[0];
+    var form;
+
+    if(document.getElementsByClassName("studio-ice-container-"+id).length){
+        form = document.getElementsByClassName("studio-ice-container-"+id)[0];
+    }else{
+        form = parent.document.getElementsByClassName("studio-ice-container-"+id)[0];
+    }
+
     form.style.height = height+'px';
 }
 
@@ -619,6 +635,8 @@ var CStudioForms = CStudioForms || function() {
                 else {
                     this.model[id] = value;
                 }
+
+                CStudioForms.updatedModel = this.model;
             },
 
             onBeforeSave: function(paramObj) {
@@ -727,14 +745,30 @@ var CStudioForms = CStudioForms || function() {
                                                                     dom = (new window.DOMParser()).parseFromString(content, "text/xml");
                                                                     dom = dom.documentElement;
                                                                 } catch(err) {
-                                                                    alert(CMgs.format(formsLangBundle, "errFailedToLoadContent", "parse: "+err));
+                                                                    CStudioAuthoring.Operations.showSimpleDialog(
+                                                                        "loadContentError-dialog",
+                                                                        CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                                                                        CMgs.format(formsLangBundle, "notification"),
+                                                                        CMgs.format(formsLangBundle, "errFailedToLoadContent", "parse: "+err),
+                                                                        null,
+                                                                        YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                                                                        "studioDialog"
+                                                                    );
                                                                 }
 
                                                                 _self._renderFormWithContent(dom, formId, formDef, style, customControllerClass, readonly);
 
                                                             },
                                                             failure: function(err) {
-                                                                alert(CMgs.format(formsLangBundle, "errFailedToLoadContent", ""+err));
+                                                                CStudioAuthoring.Operations.showSimpleDialog(
+                                                                    "loadContentError-dialog",
+                                                                    CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                                                                    CMgs.format(formsLangBundle, "notification"),
+                                                                    CMgs.format(formsLangBundle, "errFailedToLoadContent", ""+err),
+                                                                    null,
+                                                                    YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                                                                    "studioDialog"
+                                                                );
                                                             }
                                                         });
                                                     }
@@ -857,6 +891,8 @@ var CStudioForms = CStudioForms || function() {
 
                 var form = new CStudioForm(formId, formDef, contentMap, style, customController);
 
+                CStudioForms.initialModel = JSON.parse(JSON.stringify(form.model));
+
                 form.readOnly = readonly;
                 form.path = path;
 
@@ -899,603 +935,711 @@ var CStudioForms = CStudioForms || function() {
                 form.definition.pageLocation = this._getPageLocation(path);
                 form.containerEl = document.getElementById("formContainer");
 
-                var iceId = CStudioAuthoring.Utils.getQueryVariable(location.search, "iceId");
-                var iceComponent = CStudioAuthoring.Utils.getQueryVariable(location.search, "iceComponent");
+                var me = this;
 
-                this._loadDatasources(form);
+                this._loadDatasources(form, function(loaded, notLoaded){
+                    var iceId = CStudioAuthoring.Utils.getQueryVariable(location.search, "iceId");
+                    var iceComponent = CStudioAuthoring.Utils.getQueryVariable(location.search, "iceComponent");
 
-                if(iceId && iceId != "") {
-                    var html = this._renderIceLayout(form);
-                    form.containerEl.innerHTML = html;
-                    var readOnlyBannerEl = document.getElementById('cstudio-form-readonly-banner');
-                    if(form.readOnly == true) {
-                        YDom.removeClass(readOnlyBannerEl, "hidden");
-                    }
-                    this._renderInContextEdit(form, iceId);
-                } else {
-
-                    var html = this._renderFormLayout(form);
-                    form.containerEl.innerHTML = html;
-
-
-                    var readOnlyBannerEl = document.getElementById('cstudio-form-readonly-banner');
-                    if(form.readOnly == true) {
-                        YDom.removeClass(readOnlyBannerEl, "hidden");
-                    }
-
-
-                    var expandAllEl = document.getElementById('cstudio-form-expand-all');
-                    var collapseAllEl = document.getElementById('cstudio-form-collapse-all');
-                    expandAllEl.form = form;
-                    collapseAllEl.form = form;
-
-                    expandAllEl.onclick = function() {
-                        var sections = form.sections;
-                        for(var q=0; q<sections.length; q++) {
-                            var section = sections[q];
-                            var sectionBodyEl = section.sectionBodyEl;
-                            var sectionOpenCloseWidgetEl = section.sectionOpenCloseWidgetEl;
-
-                            sectionBodyEl.style.display = "block";
-                            YAHOO.util.Dom.removeClass(sectionOpenCloseWidgetEl, 'cstudio-form-section-widget-closed');
+                    if(iceId && iceId != "") {
+                        var html = me._renderIceLayout(form);
+                        form.containerEl.innerHTML = html;
+                        var readOnlyBannerEl = document.getElementById('cstudio-form-readonly-banner');
+                        if(form.readOnly == true) {
+                            YDom.removeClass(readOnlyBannerEl, "hidden");
                         }
-                    }
-
-                    collapseAllEl.onclick = function() {
-                        var sections = form.sections;
-                        for(var q=0; q<sections.length; q++) {
-                            var section = sections[q];
-                            var sectionBodyEl = section.sectionBodyEl;
-                            var sectionOpenCloseWidgetEl = section.sectionOpenCloseWidgetEl;
-
-                            sectionBodyEl.style.display = "none";
-                            YAHOO.util.Dom.addClass(sectionOpenCloseWidgetEl, 'cstudio-form-section-widget-closed');
+                        me._renderInContextEdit(form, iceId);
+                    } else {
+                    
+                        var html = me._renderFormLayout(form);
+                        form.containerEl.innerHTML = html;
+                    
+                    
+                        var readOnlyBannerEl = document.getElementById('cstudio-form-readonly-banner');
+                        if(form.readOnly == true) {
+                            YDom.removeClass(readOnlyBannerEl, "hidden");
                         }
-                    }
-
-                    this._renderFormSections(form);
-                }
-
-                var buildEntityIdFn = function(draft) {
-                    var entityId = path.replace(".html", ".xml");
-                    var changeTemplate = CStudioAuthoring.Utils.getQueryVariable(location.search, "changeTemplate");
-                    var length = entityId.length;
-                    var index_html = "";
-                    var fileName   = form.model["file-name"];
-                    var folderName = (form.definition.contentAsFolder || form.definition.contentAsFolder == "true") ? form.model["folder-name"] : undefined;
-                    /*
-                     * No folderName means it is NOT a content-as-folder content type.
-                     * See file-name.js function _onChange().
-                     */
-
-                    if(form.definition.objectType == "page"){
-                        var pagePath = entityId.replace('/site/website/', '');
-                        file = pagePath.split("/").pop();
-
-                        if((file.indexOf(".xml") > -1) && (file != "index.xml")) {
-                            folderName = "";
+                    
+                    
+                        var expandAllEl = document.getElementById('cstudio-form-expand-all');
+                        var collapseAllEl = document.getElementById('cstudio-form-collapse-all');
+                        expandAllEl.form = form;
+                        collapseAllEl.form = form;
+                    
+                        expandAllEl.onclick = function() {
+                            var sections = form.sections;
+                            for(var q=0; q<sections.length; q++) {
+                                var section = sections[q];
+                                var sectionBodyEl = section.sectionBodyEl;
+                                var sectionOpenCloseWidgetEl = section.sectionOpenCloseWidgetEl;
+                    
+                                sectionBodyEl.style.display = "block";
+                                YAHOO.util.Dom.removeClass(sectionOpenCloseWidgetEl, 'cstudio-form-section-widget-closed');
+                            }
                         }
-                    }
-
-                    if (changeTemplate == "true") {
-                        if (form.definition.contentAsFolder == "false") {
-                            entityId = entityId.replace("/index.xml");
+                    
+                        collapseAllEl.onclick = function() {
+                            var sections = form.sections;
+                            for(var q=0; q<sections.length; q++) {
+                                var section = sections[q];
+                                var sectionBodyEl = section.sectionBodyEl;
+                                var sectionOpenCloseWidgetEl = section.sectionOpenCloseWidgetEl;
+                    
+                                sectionBodyEl.style.display = "none";
+                                YAHOO.util.Dom.addClass(sectionOpenCloseWidgetEl, 'cstudio-form-section-widget-closed');
+                            }
                         }
+                    
+                        me._renderFormSections(form);
                     }
-
-                    if (folderName != undefined && folderName.length == 0)
-                        folderName = undefined;
-                    if (folderName) {
-                        index_html = "/index.xml";
-                        if (fileName != index_html.substring(1))
+                    
+                    var buildEntityIdFn = function(draft) {
+                        var entityId = path.replace(".html", ".xml");
+                        var changeTemplate = CStudioAuthoring.Utils.getQueryVariable(location.search, "changeTemplate");
+                        var length = entityId.length;
+                        var index_html = "";
+                        var fileName   = form.model["file-name"];
+                        var folderName = (form.definition.contentAsFolder || form.definition.contentAsFolder == "true") ? form.model["folder-name"] : undefined;
+                        /*
+                        * No folderName means it is NOT a content-as-folder content type.
+                        * See file-name.js function _onChange().
+                        */
+                    
+                        if(form.definition.objectType == "page"){
+                            var pagePath = entityId.replace('/site/website/', '');
+                            file = pagePath.split("/").pop();
+                    
+                            if((file.indexOf(".xml") > -1) && (file != "index.xml")) {
+                                folderName = "";
+                            }
+                        }
+                    
+                        if (changeTemplate == "true") {
+                            if (form.definition.contentAsFolder == "false") {
+                                entityId = entityId.replace("/index.xml");
+                            }
+                        }
+                    
+                        if (folderName != undefined && folderName.length == 0)
+                            folderName = undefined;
+                        if (folderName) {
+                            index_html = "/index.xml";
+                            if (fileName != index_html.substring(1))
+                            {
+                                CStudioAuthoring.Operations.showSimpleDialog(
+                                    "errExpectedIndexXml-dialog",
+                                    CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                                    CMgs.format(formsLangBundle, "notification"),
+                                    CMgs.format(formsLangBundle, "errExpectedIndexXml"),
+                                    null,
+                                    YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                                    "studioDialog"
+                                );
+                            }
+                            if (entityId.indexOf(index_html) == length - 10)
+                                entityId = entityId.substring(0, length - 10);
+                        }
+                        else if (fileName.indexOf(".xml") != fileName.length - 4)
                         {
-                            alert(CMgs.format(formsLangBundle, "errExpectedIndexXml"));
+                            form.model["file-name"] = (fileName += ".xml");
                         }
-                        if (entityId.indexOf(index_html) == length - 10)
-                            entityId = entityId.substring(0, length - 10);
-                    }
-                    else if (fileName.indexOf(".xml") != fileName.length - 4)
-                    {
-                        form.model["file-name"] = (fileName += ".xml");
-                    }
-                    if (edit == "true" || form.readOnly || saveDraft) { //This is also necessary in readonly mode
-                        // Get parent folder
-                        entityId = entityId.substring(0, entityId.lastIndexOf("/"));
-                    }
-                    if (folderName) {
-                        entityId += "/" + folderName + index_html;
-                    }
-                    else {
-                        entityId += "/" + fileName;
-                    }
-                    if(!(form.isInError() && draft==false) && !(form.isInErrorDraft() && draft ==true)){
-                        saveDraft = true;
-                    }
-                    return entityId;
-                }
-
-                //If the form is opened in view mode, we don't need show the warn message or unlock the item
-                var showWarnMsg = (form.readOnly)?false:true;
-                var _notifyServer = (form.readOnly)?false:true;
-                var message = CMgs.format(formsLangBundle, "cancelDialogBody");
-
-                var queryString = document.location.search;
-                var editorId = CStudioAuthoring.Utils.getQueryVariable(queryString, "editorId");
-                var iceWindowCallback = CStudioAuthoring.InContextEdit.getIceCallback(editorId);
-
-                var saveFn = function(preview,draft) {
-                    showWarnMsg = false;
-                    var saveDraft = (draft == true) ? true : false;
-
-
-                    var saveAndCloseEl = document.getElementById("cstudioSaveAndClose");
-                    var saveAndCloseDraftEl = document.getElementById("cstudioSaveAndCloseDraft");
-                    var saveAndPreviewEl = document.getElementById("cstudioSaveAndPreview");
-
-                    if(saveAndCloseEl) saveAndCloseEl.disabled = true;
-                    if(saveAndPreviewEl) saveAndPreviewEl.disabled = true;
-                    if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = true;
-
-                    var entityId = buildEntityIdFn(draft);
-                    var entityFile = entityId.substring(entityId.lastIndexOf('/') + 1);
-                    if((form.isInError() && draft==false) || (form.isInErrorDraft() && draft ==true)) {
-                        var dialogEl = document.getElementById("errMissingRequirements");
-                        if(!dialogEl){
-                            var dialog = new YAHOO.widget.SimpleDialog("errMissingRequirements",
-                                { width: "375px",fixedcenter: true, visible: false, draggable: false, close: false, modal: true,
-                                    text: CMgs.format(formsLangBundle, "errMissingRequirements"), icon: YAHOO.widget.SimpleDialog.ICON_BLOCK,
-                                    constraintoviewport: true,
-                                    buttons: [ { text:CMgs.format(formsLangBundle, "ok"),  handler:function(){this.hide();}, isDefault:false } ]
-                                });
-                            dialog.setHeader(CMgs.format(formsLangBundle, "cancelDialogHeader"));
-                            dialog.render(document.body);
-                            dialogEl = document.getElementById("errMissingRequirements");
-                            dialogEl.dialog = dialog;
+                        if (edit == "true" || form.readOnly || saveDraft) { //This is also necessary in readonly mode
+                            // Get parent folder
+                            entityId = entityId.substring(0, entityId.lastIndexOf("/"));
                         }
-                        dialogEl.dialog.show();
-                        //alert(CMgs.format(formsLangBundle, "errMissingRequirements"));
-                        if(saveAndCloseEl) saveAndCloseEl.disabled = false;
-                        if(saveAndPreviewEl) saveAndPreviewEl.disabled = false;
-                        if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = false;
-                        return;
-                    }
-
-                    form.onBeforeSave({ "preview" : preview });
-
-                    if(form.customController) {
-                        if(form.customController.onBeforeSave() == false) {
-                            return;
+                        if (folderName) {
+                            entityId += "/" + folderName + index_html;
                         }
-                    }
-
-                    var xml = CStudioForms.Util.serializeModelToXml(form, saveDraft);
-
-                    var serviceUrl = "/api/1/services/api/1/content/write-content.json" +
-                        "?site=" + CStudioAuthoringContext.site +
-                        "&phase=onSave" +
-                        "&path=" + entityId +
-                        "&fileName=" + entityFile +
-                        "&user=" + CStudioAuthoringContext.user +
-                        "&contentType=" + contentType;
-
-                    if(path != entityId && edit && edit == "true") {
-                        // this is a rename
-                        serviceUrl += "&oldContentPath=" + path;
-                    }
-
-                    if(preview || draft==true) {
-                        serviceUrl += "&unlock=false";
-                    }
-                    else {
-                        serviceUrl += "&unlock=true";
-                    }
-
-                    var createDialog = function(){
-                        var dialogEl = document.getElementById("saveDraftWar");
-                        if(!dialogEl) {
-                            var dialog = new YAHOO.widget.SimpleDialog("saveDraftWar",
-                                { width: "300px", fixedcenter: true, visible: false, draggable: false, close: true, modal: true,
-                                    text: "Draft Save Completed", icon: YAHOO.widget.SimpleDialog.ICON_INFO,
-                                    constraintoviewport: true
-                                });
-                            dialog.setHeader("Notification");
-                            dialog.render(document.body);
-                            dialogEl = document.getElementById("saveDraftWar");
-                            dialogEl.dialog = dialog;
+                        else {
+                            entityId += "/" + fileName;
                         }
-                        dialogEl.dialog.show();
-                        setTimeout(function(){ dialogEl.dialog.hide();}, 1500);
+                        if(!(form.isInError() && draft==false) && !(form.isInErrorDraft() && draft ==true)){
+                            saveDraft = true;
+                        }
+                        return entityId;
                     }
-
-                    var saveCb = {
-                        success: function() {
-                            var getContentItemCb = {
-                                success: function(contentTO) {
-                                    var previewUrl = CStudioAuthoringContext.previewAppBaseUri + contentTO.item.browserUri;
-                                    path = entityId;
-                                    var formId = CStudioAuthoring.Utils.getQueryVariable(location.search.substring(1), 'wid');
-
-                                    if(saveAndCloseEl) saveAndCloseEl.disabled = false;
-                                    if(saveAndPreviewEl) saveAndPreviewEl.disabled = false;
-                                    if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = false;
-
-                                    if(iceWindowCallback) {
-                                        var value = form.model["internal-name"];
-                                        var name = entityId;
-                                        var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
-
-                                        iceWindowCallback.success(contentTO, editorId, name, value, draft);
-                                        if(draft) {
-                                            CStudioAuthoring.Utils.Cookies.createCookie("cstudio-save-draft","true");
-                                            createDialog();
-                                        }
-                                        else {
-                                            CStudioAuthoring.Utils.Cookies.eraseCookie("cstudio-save-draft");
-                                            CStudioAuthoring.InContextEdit.unstackDialog(editorId);
-                                            CStudioAuthoring.Operations.refreshPreview();
-                                        }
-                                    }
-                                    else {
-                                        var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
-                                        if(draft) {
-                                            CStudioAuthoring.Utils.Cookies.createCookie("cstudio-save-draft","true");
-                                            CStudioAuthoring.Operations.refreshPreview();
-                                            createDialog();
-                                        }
-                                        else {
-                                            CStudioAuthoring.Utils.Cookies.eraseCookie("cstudio-save-draft");
-                                            CStudioAuthoring.InContextEdit.unstackDialog(editorId);
-                                            CStudioAuthoring.Operations.refreshPreview();
-                                        }
-                                    }
-                                    var page =  CStudioAuthoring.Utils.getQueryParameterURLParentWindow("page");
-                                    var currentPage = page.split("/")[page.split("/").length - 1];
-                                    var acnDraftContent = YDom.getElementsByClassName("acnDraftContent", null, parent.document)[0];
-                                    if(acnDraftContent && !saveDraft){
-                                        acnDraftContent.parentNode.removeChild(acnDraftContent);
-                                    }
-                                    if(!acnDraftContent && saveDraft && (contentTO.item.browserUri == page )){
-                                        var noticeEl = document.createElement("div");
-                                        parent.document.querySelector("#studioBar nav .container-fluid").appendChild(noticeEl);
-                                        YDom.addClass(noticeEl, "acnDraftContent");
-                                        noticeEl.innerHTML = CMgs.format(formsLangBundle, "wcmContentSavedAsDraft");
-                                    }
-                                },
-                                failure: function (err) {
-                                    alert(err);
-                                    form.onAfterSave();
-
-                                    if(saveAndCloseEl) saveAndCloseEl.disabled = false;
-                                    if(saveAndPreviewEl) saveAndPreviewEl.disabled = false;
-                                    if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = false;
-
-                                }
-                            };
-
-                            if(entityId == path){
-                                CStudioAuthoring.Service.lookupContentItem(CStudioAuthoringContext.site, entityId, getContentItemCb, false, false);
-                            }else{
-                                CStudioAuthoring.Service.lookupSiteContent(CStudioAuthoringContext.site, entityId, 1, 'default', getContentItemCb);
+                    
+                    //If the form is opened in view mode, we don't need show the warn message or unlock the item
+                    var showWarnMsg = (form.readOnly)?false:true;
+                    var _notifyServer = (form.readOnly)?false:true;
+                    var message = CMgs.format(formsLangBundle, "cancelDialogBody");
+                    
+                    var queryString = document.location.search;
+                    var editorId = CStudioAuthoring.Utils.getQueryVariable(queryString, "editorId");
+                    var iceWindowCallback = CStudioAuthoring.InContextEdit.getIceCallback(editorId);
+                    
+                    var saveFn = function(preview,draft) {
+                        showWarnMsg = false;
+                        var saveDraft = (draft == true) ? true : false;
+                    
+                    
+                        var saveAndCloseEl = document.getElementById("cstudioSaveAndClose");
+                        var saveAndCloseDraftEl = document.getElementById("cstudioSaveAndCloseDraft");
+                        var saveAndPreviewEl = document.getElementById("cstudioSaveAndPreview");
+                    
+                        if(saveAndCloseEl) saveAndCloseEl.disabled = true;
+                        if(saveAndPreviewEl) saveAndPreviewEl.disabled = true;
+                        if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = true;
+                    
+                        var entityId = buildEntityIdFn(draft);
+                        var entityFile = entityId.substring(entityId.lastIndexOf('/') + 1);
+                        if((form.isInError() && draft==false) || (form.isInErrorDraft() && draft ==true)) {
+                            var dialogEl = document.getElementById("errMissingRequirements");
+                            if(!dialogEl){
+                                var dialog = new YAHOO.widget.SimpleDialog("errMissingRequirements",
+                                    { width: "375px",fixedcenter: true, visible: false, draggable: false, close: false, modal: true,
+                                        text: CMgs.format(formsLangBundle, "errMissingRequirements"), icon: YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                                        constraintoviewport: true,
+                                        buttons: [ { text:CMgs.format(formsLangBundle, "ok"),  handler:function(){this.hide();}, isDefault:false } ]
+                                    });
+                                dialog.setHeader(CMgs.format(formsLangBundle, "cancelDialogHeader"));
+                                dialog.render(document.body);
+                                dialogEl = document.getElementById("errMissingRequirements");
+                                dialogEl.dialog = dialog;
                             }
-
-                        },
-                        failure: function(err) {
-                            try{
-                                alert(YAHOO.lang.JSON.parse(err.responseText).callstack[1].substring( YAHOO.lang.JSON.parse(err.responseText).callstack[1].indexOf(':')+1))
-                            }catch (e) {
-                                alert(CMgs.format(formsLangBundle, "errSaveFailed"));
-                            }
+                            dialogEl.dialog.show();
+                            //alert(CMgs.format(formsLangBundle, "errMissingRequirements"));
                             if(saveAndCloseEl) saveAndCloseEl.disabled = false;
                             if(saveAndPreviewEl) saveAndPreviewEl.disabled = false;
                             if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = false;
+                            return;
+                        }
+                    
+                        form.onBeforeSave({ "preview" : preview });
+                    
+                        if(form.customController) {
+                            if(form.customController.onBeforeSave() == false) {
+                                return;
+                            }
+                        }
+                    
+                        var xml = CStudioForms.Util.serializeModelToXml(form, saveDraft);
+                    
+                        var serviceUrl = "/api/1/services/api/1/content/write-content.json" +
+                            "?site=" + CStudioAuthoringContext.site +
+                            "&phase=onSave" +
+                            "&path=" + entityId +
+                            "&fileName=" + entityFile +
+                            "&user=" + CStudioAuthoringContext.user +
+                            "&contentType=" + contentType;
+                    
+                        if(path != entityId && edit && edit == "true") {
+                            // this is a rename
+                            serviceUrl += "&oldContentPath=" + path;
+                        }
+                    
+                        if(preview || draft==true) {
+                            serviceUrl += "&unlock=false";
+                        }
+                        else {
+                            serviceUrl += "&unlock=true";
+                        }
+                    
+                        var createDialog = function(){
+                            var dialogEl = document.getElementById("saveDraftWar");
+                            if(!dialogEl) {
+                                var dialog = new YAHOO.widget.SimpleDialog("saveDraftWar",
+                                    { width: "300px", fixedcenter: true, visible: false, draggable: false, close: true, modal: true,
+                                        text: "Draft Save Completed", icon: YAHOO.widget.SimpleDialog.ICON_INFO,
+                                        constraintoviewport: true
+                                    });
+                                dialog.setHeader("Notification");
+                                dialog.render(document.body);
+                                dialogEl = document.getElementById("saveDraftWar");
+                                dialogEl.dialog = dialog;
+                            }
+                            dialogEl.dialog.show();
+                            setTimeout(function(){ dialogEl.dialog.hide();}, 1500);
+                        }
+                    
+                        var saveCb = {
+                            success: function() {
+                                var getContentItemCb = {
+                                    success: function(contentTO) {
+                                        var previewUrl = CStudioAuthoringContext.previewAppBaseUri + contentTO.item.browserUri;
+                                        path = entityId;
+                                        var formId = CStudioAuthoring.Utils.getQueryVariable(location.search.substring(1), 'wid');
+                    
+                                        if(saveAndCloseEl) saveAndCloseEl.disabled = false;
+                                        if(saveAndPreviewEl) saveAndPreviewEl.disabled = false;
+                                        if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = false;
+                    
+                                        if(iceWindowCallback) {
+                                            var value = form.model["internal-name"];
+                                            var name = entityId;
+                                            var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
+                    
+                                            contentTO.initialModel = CStudioForms.initialModel;
+                                            contentTO.updatedModel = CStudioForms.updatedModel;
+                    
+                                            iceWindowCallback.success(contentTO, editorId, name, value, draft);
+                                            if(draft) {
+                                                CStudioAuthoring.Utils.Cookies.createCookie("cstudio-save-draft","true");
+                                                createDialog();
+                                            }
+                                            else {
+                                                CStudioAuthoring.Utils.Cookies.eraseCookie("cstudio-save-draft");
+                                                CStudioAuthoring.InContextEdit.unstackDialog(editorId);
+                                                CStudioAuthoring.Operations.refreshPreview();
+                                            }
+                                        }
+                                        else {
+                                            var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
+                                            if(draft) {
+                                                CStudioAuthoring.Utils.Cookies.createCookie("cstudio-save-draft","true");
+                                                CStudioAuthoring.Operations.refreshPreview();
+                                                createDialog();
+                                            }
+                                            else {
+                                                CStudioAuthoring.Utils.Cookies.eraseCookie("cstudio-save-draft");
+                                                CStudioAuthoring.InContextEdit.unstackDialog(editorId);
+                                                CStudioAuthoring.Operations.refreshPreview();
+                                            }
+                                        }
+                                        var page =  CStudioAuthoring.Utils.getQueryParameterURLParentWindow("page");
+                                        var currentPage = page.split("/")[page.split("/").length - 1];
+                                        var acnDraftContent = YDom.getElementsByClassName("acnDraftContent", null, parent.document)[0];
+                                        if(acnDraftContent && !saveDraft){
+                                            acnDraftContent.parentNode.removeChild(acnDraftContent);
+                                        }
+                                        if(!acnDraftContent && saveDraft && (contentTO.item.browserUri == page )){
+                                            var noticeEl = document.createElement("div");
+                                            parent.document.querySelector("#studioBar nav .container-fluid").appendChild(noticeEl);
+                                            YDom.addClass(noticeEl, "acnDraftContent");
+                                            noticeEl.innerHTML = CMgs.format(formsLangBundle, "wcmContentSavedAsDraft");
+                                        }
+                                    },
+                                    failure: function (err) {
+                                        CStudioAuthoring.Operations.showSimpleDialog(
+                                            "error-dialog",
+                                            CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                                            CMgs.format(formsLangBundle, "notification"),
+                                            err,
+                                            [{ text: "OK",  handler:function(){
+                                                this.hide();
+                    
+                                                form.onAfterSave();
+                    
+                                                if(saveAndCloseEl) saveAndCloseEl.disabled = false;
+                                                if(saveAndPreviewEl) saveAndPreviewEl.disabled = false;
+                                                if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = false;
+                    
+                                            }, isDefault:false }],
+                                            YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                                            "studioDialog"
+                                        );
+                    
+                                    }
+                                };
+                    
+                                if(entityId == path){
+                                    CStudioAuthoring.Service.lookupContentItem(CStudioAuthoringContext.site, entityId, getContentItemCb, false, false);
+                                }else{
+                                    CStudioAuthoring.Service.lookupSiteContent(CStudioAuthoringContext.site, entityId, 1, 'default', getContentItemCb);
+                                }
+                    
+                            },
+                            failure: function(err) {
+                                try{
+                                    CStudioAuthoring.Operations.showSimpleDialog(
+                                        "error-dialog",
+                                        CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                                        CMgs.format(formsLangBundle, "notification"),
+                                        YAHOO.lang.JSON.parse(err.responseText).callstack[1].substring( YAHOO.lang.JSON.parse(err.responseText).callstack[1].indexOf(':')+1),
+                                        null,
+                                        YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                                        "studioDialog"
+                                    );
+                                }catch (e) {
+                                    CStudioAuthoring.Operations.showSimpleDialog(
+                                        "error-dialog",
+                                        CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                                        CMgs.format(formsLangBundle, "notification"),
+                                        CMgs.format(formsLangBundle, "errSaveFailed"),
+                                        null,
+                                        YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                                        "studioDialog"
+                                    );
+                                }
+                                if(saveAndCloseEl) saveAndCloseEl.disabled = false;
+                                if(saveAndPreviewEl) saveAndPreviewEl.disabled = false;
+                                if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = false;
+                            }
+                        };
+                    
+                        YAHOO.util.Connect.setDefaultPostHeader(false);
+                        YAHOO.util.Connect.initHeader("Content-Type", "application/xml; charset=utf-8");
+                        YAHOO.util.Connect.initHeader(CStudioAuthoringContext.xsrfHeaderName, CStudioAuthoringContext.xsrfToken);
+                        YAHOO.util.Connect.asyncRequest('POST', CStudioAuthoring.Service.createServiceUri(serviceUrl), saveCb, xml);
+                    };
+                    
+                    var formControlBarEl = YDom.getElementsByClassName("cstudio-form-controls-container", null, form.containerEl)[0];
+                    var formButtonContainerEl = document.createElement("div");
+                    YDom.addClass(formButtonContainerEl, "cstudio-form-controls-button-container");
+                    formControlBarEl.appendChild(formButtonContainerEl);
+                    
+                    function reloadParentWindow() {
+                        window.parent.location.reload();
+                    }
+                    
+                    var beforeUnloadFn = function(e){
+                        if(showWarnMsg){
+                            var evt = e || window.event;
+                            evt.returnValue = message;
+                            YAHOO.util.Event.stopEvent(evt);
+                            return message;
                         }
                     };
-
-                    YAHOO.util.Connect.setDefaultPostHeader(false);
-                    YAHOO.util.Connect.initHeader("Content-Type", "application/xml; charset=utf-8");
-                    YAHOO.util.Connect.asyncRequest('POST', CStudioAuthoring.Service.createServiceUri(serviceUrl), saveCb, xml);
-                };
-
-                var formControlBarEl = YDom.getElementsByClassName("cstudio-form-controls-container", null, form.containerEl)[0];
-                var formButtonContainerEl = document.createElement("div");
-                YDom.addClass(formButtonContainerEl, "cstudio-form-controls-button-container");
-                formControlBarEl.appendChild(formButtonContainerEl);
-
-                function reloadParentWindow() {
-                    window.parent.location.reload();
-                }
-
-                var beforeUnloadFn = function(e){
-                    if(showWarnMsg){
-                        var evt = e || window.event;
-                        evt.returnValue = message;
-                        YAHOO.util.Event.stopEvent(evt);
-                        return message;
-                    }
-                };
-
-                var unloadFn = function(e){
-                    if(_notifyServer){
-                        path = CStudioAuthoring.Utils.getQueryVariable(location.search, "path");
-                        if( path && path.indexOf(".xml") != -1) {
-                            var entityId = buildEntityIdFn(null);
-                            CStudioAuthoring.Service.unlockContentItemSync(CStudioAuthoringContext.site, entityId);
+                    
+                    var unloadFn = function(e){
+                        if(_notifyServer){
+                            path = CStudioAuthoring.Utils.getQueryVariable(location.search, "path");
+                            if( path && path.indexOf(".xml") != -1) {
+                                var entityId = buildEntityIdFn(null);
+                                CStudioAuthoring.Service.unlockContentItemSync(CStudioAuthoringContext.site, entityId);
+                            }
                         }
-                    }
-                };
-
-                var cancelFn = function() {
-
-                    if(iceWindowCallback && iceWindowCallback.cancelled){
-                        iceWindowCallback.cancelled();
-                    }
-
-                    if (typeof window.parent.CStudioAuthoring.editDisabled !== 'undefined') {
-                        for(var x = 0; x < window.parent.CStudioAuthoring.editDisabled.length; x++){
-                            window.parent.CStudioAuthoring.editDisabled[x].style.pointerEvents = "";
+                    };
+                    
+                    var cancelFn = function() {
+                    
+                        if(iceWindowCallback && iceWindowCallback.cancelled){
+                            iceWindowCallback.cancelled();
                         }
-                        window.parent.CStudioAuthoring.editDisabled = [];
-                    }
-
-                    var flag = false;
-                    if(form.sections.length){
-                        for(var j=0; j < form.sections.length; j++){
-                            if(form.sections[j].fields.length){
-                                for(var i=0; i < form.sections[j].fields.length; i++){
-                                    if(form.sections[j].fields[i].edited == true){
-                                        flag = true;
+                    
+                        if (typeof window.parent.CStudioAuthoring.editDisabled !== 'undefined') {
+                            for(var x = 0; x < window.parent.CStudioAuthoring.editDisabled.length; x++){
+                                window.parent.CStudioAuthoring.editDisabled[x].style.pointerEvents = "";
+                            }
+                            window.parent.CStudioAuthoring.editDisabled = [];
+                        }
+                    
+                        var flag = false;
+                        if(form.sections.length){
+                            for(var j=0; j < form.sections.length; j++){
+                                if(form.sections[j].fields.length){
+                                    for(var i=0; i < form.sections[j].fields.length; i++){
+                                        if(form.sections[j].fields[i].edited == true){
+                                            flag = true;
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    if(showWarnMsg && (flag || repeatEdited)){
-                        var dialogEl = document.getElementById("closeUserWarning");
-                        if(!dialogEl){
-                            var dialog = new YAHOO.widget.SimpleDialog("closeUserWarning",
-                                { width: "300px",fixedcenter: true, visible: false, draggable: false, close: false, modal: true,
-                                    text: message, icon: YAHOO.widget.SimpleDialog.ICON_WARN,
-                                    constraintoviewport: true,
-                                    buttons: [ { text:CMgs.format(formsLangBundle, "yes"), handler: function(){
-                                        this.hide();
-                                        var entityId = buildEntityIdFn(null);
-                                        showWarnMsg = false;
-
-                                        var path = CStudioAuthoring.Utils.getQueryVariable(location.search, "path");
-                                        if( path && path.indexOf(".xml") != -1) {
-                                            CStudioAuthoring.Service.lookupContentItem(CStudioAuthoringContext.site, path, {
-                                                success: function (itemTO) {
-                                                    //Unlock if the item is locked by the user
-                                                    if (itemTO.item.lockOwner == CStudioAuthoringContext.user) {
-                                                        CStudioAuthoring.Service.unlockContentItem(CStudioAuthoringContext.site, path, {
-                                                            success: function() {
-                                                                _notifyServer = false;
-                                                                var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
-                                                                CStudioAuthoring.InContextEdit.unstackDialog(editorId);
-                                                            },
-                                                            failure: function() {
-                                                            }
-                                                        });
-                                                    } else {
-                                                        _notifyServer = false;
-                                                        var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
-                                                        CStudioAuthoring.InContextEdit.unstackDialog(editorId);
+                        if(showWarnMsg && (flag || repeatEdited)){
+                            var dialogEl = document.getElementById("closeUserWarning");
+                            if(!dialogEl){
+                                var dialog = new YAHOO.widget.SimpleDialog("closeUserWarning",
+                                    { width: "300px",fixedcenter: true, visible: false, draggable: false, close: false, modal: true,
+                                        text: message, icon: YAHOO.widget.SimpleDialog.ICON_WARN,
+                                        constraintoviewport: true,
+                                        buttons: [ { text:CMgs.format(formsLangBundle, "yes"), handler: function(){
+                                            this.hide();
+                                            var entityId = buildEntityIdFn(null);
+                                            showWarnMsg = false;
+                    
+                                            var path = CStudioAuthoring.Utils.getQueryVariable(location.search, "path");
+                                            if( path && path.indexOf(".xml") != -1) {
+                                                CStudioAuthoring.Service.lookupContentItem(CStudioAuthoringContext.site, path, {
+                                                    success: function (itemTO) {
+                                                        //Unlock if the item is locked by the user
+                                                        if (itemTO.item.lockOwner == CStudioAuthoringContext.user) {
+                                                            CStudioAuthoring.Service.unlockContentItem(CStudioAuthoringContext.site, path, {
+                                                                success: function() {
+                                                                    _notifyServer = false;
+                                                                    var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
+                                                                    CStudioAuthoring.InContextEdit.unstackDialog(editorId);
+                                                                },
+                                                                failure: function() {
+                                                                }
+                                                            });
+                                                        } else {
+                                                            _notifyServer = false;
+                                                            var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
+                                                            CStudioAuthoring.InContextEdit.unstackDialog(editorId);
+                                                        }
+                                                    },
+                                                    failure: function() {
+                    
                                                     }
-                                                },
-                                                failure: function() {
-
+                                                });
+                                            } else {
+                                                _notifyServer = false;
+                                                var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
+                                                CStudioAuthoring.InContextEdit.unstackDialog(editorId);
+                    
+                                                if(path == '/site/components/page'){
+                                                    CStudioAuthoring.Operations.refreshPreview();
                                                 }
-                                            });
-                                        } else {
-                                            _notifyServer = false;
-                                            var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
-                                            CStudioAuthoring.InContextEdit.unstackDialog(editorId);
-
-                                            if(path == '/site/components/page'){
-                                                CStudioAuthoring.Operations.refreshPreview();
                                             }
-                                        }
-                                    }, isDefault:false },
-                                        { text:CMgs.format(formsLangBundle, "no"),  handler:function(){this.hide();}, isDefault:true } ]
-                                });
-                            dialog.setHeader(CMgs.format(formsLangBundle, "cancelDialogHeader"));
-                            dialog.render(document.body);
-                            dialogEl = document.getElementById("closeUserWarning");
-                            dialogEl.dialog = dialog;
+                                        }, isDefault:false },
+                                            { text:CMgs.format(formsLangBundle, "no"),  handler:function(){this.hide();}, isDefault:true } ]
+                                    });
+                                dialog.setHeader(CMgs.format(formsLangBundle, "cancelDialogHeader"));
+                                dialog.render(document.body);
+                                dialogEl = document.getElementById("closeUserWarning");
+                                dialogEl.dialog = dialog;
+                            }
+                            dialogEl.dialog.show();
+                        }else{
+                            if( path && path.indexOf(".xml") != -1) {
+                                var entityId = buildEntityIdFn(null);
+                                CStudioAuthoring.Service.unlockContentItemSync(CStudioAuthoringContext.site, entityId);
+                            }
+                            if((iceId && iceId !="") || (iceComponent && iceComponent != "")) {
+                                var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
+                                CStudioAuthoring.InContextEdit.unstackDialog(editorId);
+                                var componentsOn = !!(sessionStorage.getItem('components-on'));
+                                if(componentsOn){
+                                    CStudioAuthoring.Operations.refreshPreview();
+                                }
+                            } else {
+                                window.close();
+                                if(componentsOn){
+                                    CStudioAuthoring.Operations.refreshPreview();
+                                }
+                            }
                         }
-                        dialogEl.dialog.show();
-                    }else{
-                        if( path && path.indexOf(".xml") != -1) {
-                            var entityId = buildEntityIdFn(null);
-                            CStudioAuthoring.Service.unlockContentItemSync(CStudioAuthoringContext.site, entityId);
-                        }
+                    };
+                    
+                    var collapseFn = function() {
                         if((iceId && iceId !="") || (iceComponent && iceComponent != "")) {
                             var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
-                            CStudioAuthoring.InContextEdit.unstackDialog(editorId);
-                            var componentsOn = !!(sessionStorage.getItem('components-on'));
-                            if(componentsOn){
-                                CStudioAuthoring.Operations.refreshPreview();
-                            }
-                        } else {
+                            CStudioAuthoring.InContextEdit.collapseDialog(editorId);
+                        }else {
                             window.close();
-                            if(componentsOn){
-                                CStudioAuthoring.Operations.refreshPreview();
-                            }
                         }
+                        // CStudioAuthoring.Operations.collapseSimpleIceEdit();
                     }
-                };
-
-                var collapseFn = function() {
-                    if((iceId && iceId !="") || (iceComponent && iceComponent != "")) {
-                        var editorId = CStudioAuthoring.Utils.getQueryVariable(location.search, 'editorId');
-                        CStudioAuthoring.InContextEdit.collapseDialog(editorId);
-                    }else {
-                        window.close();
+                    
+                    amplify.subscribe('/field/init/completed', function () {
+                        form.asyncFields--;
+                        closeAjaxOverlay();
+                    });
+                    
+                    if(!form.readOnly) {
+                        var saveButtonEl = document.createElement("input");
+                        saveButtonEl.id = "cstudioSaveAndClose";
+                        YDom.addClass(saveButtonEl, "btn");
+                        YDom.addClass(saveButtonEl, "btn-primary");
+                        YDom.addClass(saveButtonEl, "cstudio-button-first");
+                        saveButtonEl.type = "button";
+                        saveButtonEl.value = CMgs.format(formsLangBundle, "saveAndClose");
+                        formButtonContainerEl.appendChild(saveButtonEl);
+                    
+                        saveButtonEl.onclick = function() {
+                            var saveAndCloseEl = document.getElementById("cstudioSaveAndClose");
+                            var saveAndPreviewEl = document.getElementById("cstudioSaveAndPreview");
+                            var saveAndCloseDraftEl = document.getElementById("cstudioSaveAndCloseDraft");
+                    
+                            if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = true;
+                            if(saveAndCloseEl) saveAndCloseEl.disabled = true;
+                            if(saveAndPreviewEl) saveAndPreviewEl.disabled = true;
+                    
+                            saveFn(false, false);
+                        };
+                    
+                    
+                        var saveButtonDraftEl = document.createElement("input");
+                        saveButtonDraftEl.id = "cstudioSaveAndCloseDraft";
+                        YDom.addClass(saveButtonDraftEl, "btn");
+                        YDom.addClass(saveButtonDraftEl, "btn-primary");
+                        YDom.addClass(saveButtonDraftEl, "cstudio-button-first");
+                        saveButtonDraftEl.type = "button";
+                        saveButtonDraftEl.value = CMgs.format(formsLangBundle, "saveAndCloseDraft");
+                        formButtonContainerEl.appendChild(saveButtonDraftEl);
+                    
+                        saveButtonDraftEl.onclick = function() {
+                            var saveAndCloseEl = document.getElementById("cstudioSaveAndClose");
+                            var saveAndPreviewEl = document.getElementById("cstudioSaveAndPreview");
+                            var saveAndCloseDraftEl = document.getElementById("cstudioSaveAndCloseDraft");
+                    
+                            if(saveAndCloseEl) saveAndCloseEl.disabled = true;
+                            if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = true;
+                            if(saveAndPreviewEl) saveAndPreviewEl.disabled = true;
+                    
+                            saveFn(false, true);
+                        };
+                    
+                    
+                        var previewButtonEl = document.createElement("input");
+                        YDom.addClass(previewButtonEl, "btn");
+                        YDom.addClass(previewButtonEl, "btn-default");
+                        YDom.addClass(previewButtonEl, "cstudio-button-first");
+                        previewButtonEl.id = "cstudioSaveAndPreview";
+                        previewButtonEl.style.display = "none";
+                        previewButtonEl.type = "button";
+                        previewButtonEl.value = CMgs.format(formsLangBundle, "saveAndPreview");
+                        formButtonContainerEl.appendChild(previewButtonEl);
+                    
+                        //In Context Edit, the preview button must not be shown
+                        var iceId = CStudioAuthoring.Utils.getQueryVariable(location.search, "iceId");
+                    
+                        /*
+                        if(contentType.indexOf("/page") != -1 && iceId === "") {
+                        previewButtonEl.style.display = "inline";
+                        }
+                        */
+                    
+                        // This is really the right thing to do but previewable doesn't come through
+                        var contentTypeCb = {
+                            success: function(type) {
+                                if(type.previewable && type.previewable == "true") {
+                                    previewButtonEl.style.display = "inline";
+                                }
+                            },
+                            failure: function() {
+                            }
+                        };
+                    
+                        CStudioAuthoring.Service.lookupContentType(CStudioAuthoringContext.site, contentType, contentTypeCb);
+                    
+                        previewButtonEl.onclick = function() {
+                            saveFn(true, false);
+                        };
+                    
+                        var cancelButtonEl = document.createElement("input");
+                        cancelButtonEl.id = "cancelBtn";
+                        YDom.addClass(cancelButtonEl, "btn");
+                        YDom.addClass(cancelButtonEl, "btn-default");
+                        cancelButtonEl.type = "button";
+                        cancelButtonEl.value = CMgs.format(formsLangBundle, "cancel");
+                        formButtonContainerEl.appendChild(cancelButtonEl);
+                    
+                        //YAHOO.util.Event.addListener(window, "beforeunload", beforeUnloadFn, this);
+                        YAHOO.util.Event.addListener(window, "unload",unloadFn, me);
+                        YAHOO.util.Event.addListener(cancelButtonEl, "click", cancelFn, me);
+                    } else {
+                        var closeButtonEl = document.createElement("input");
+                        YDom.addClass(closeButtonEl, "btn");
+                        YDom.addClass(closeButtonEl, "btn-default");
+                        closeButtonEl.type = "button";
+                        closeButtonEl.value = CMgs.format(formsLangBundle, "close");
+                        formButtonContainerEl.appendChild(closeButtonEl);
+                        YDom.setStyle(formButtonContainerEl,"text-align","center");
+                    
+                        //YAHOO.util.Event.addListener(window, "beforeunload", beforeUnloadFn, this);
+                        YAHOO.util.Event.addListener(window, "unload",unloadFn, me);
+                        YAHOO.util.Event.addListener(closeButtonEl, "click", cancelFn, me);
                     }
-                    // CStudioAuthoring.Operations.collapseSimpleIceEdit();
-                }
-
-                amplify.subscribe('/field/init/completed', function () {
-                    form.asyncFields--;
-                    closeAjaxOverlay();
+                    var colExpButtonEl = document.createElement("input");
+                    colExpButtonEl.id = "colExpButtonBtn";
+                    YDom.addClass(colExpButtonEl, "btn");
+                    YDom.addClass(colExpButtonEl, "btn-default");
+                    colExpButtonEl.type = "button";
+                    colExpButtonEl.value = "Collapse";
+                    formControlBarEl.appendChild(colExpButtonEl);
+                    YAHOO.util.Event.addListener(colExpButtonEl, "click", collapseFn, me);
+                    
+                    var overlayContainer = parent.document.getElementById(window.frameElement.id).parentElement;
+                    YDom.addClass(overlayContainer, "overlay");
                 });
-
-                if(!form.readOnly) {
-                    var saveButtonEl = document.createElement("input");
-                    saveButtonEl.id = "cstudioSaveAndClose";
-                    YDom.addClass(saveButtonEl, "btn");
-                    YDom.addClass(saveButtonEl, "btn-primary");
-                    YDom.addClass(saveButtonEl, "cstudio-button-first");
-                    saveButtonEl.type = "button";
-                    saveButtonEl.value = CMgs.format(formsLangBundle, "saveAndClose");
-                    formButtonContainerEl.appendChild(saveButtonEl);
-
-                    saveButtonEl.onclick = function() {
-                        var saveAndCloseEl = document.getElementById("cstudioSaveAndClose");
-                        var saveAndPreviewEl = document.getElementById("cstudioSaveAndPreview");
-                        var saveAndCloseDraftEl = document.getElementById("cstudioSaveAndCloseDraft");
-
-                        if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = true;
-                        if(saveAndCloseEl) saveAndCloseEl.disabled = true;
-                        if(saveAndPreviewEl) saveAndPreviewEl.disabled = true;
-
-                        saveFn(false, false);
-                    };
-
-
-                    var saveButtonDraftEl = document.createElement("input");
-                    saveButtonDraftEl.id = "cstudioSaveAndCloseDraft";
-                    YDom.addClass(saveButtonDraftEl, "btn");
-                    YDom.addClass(saveButtonDraftEl, "btn-primary");
-                    YDom.addClass(saveButtonDraftEl, "cstudio-button-first");
-                    saveButtonDraftEl.type = "button";
-                    saveButtonDraftEl.value = CMgs.format(formsLangBundle, "saveAndCloseDraft");
-                    formButtonContainerEl.appendChild(saveButtonDraftEl);
-
-                    saveButtonDraftEl.onclick = function() {
-                        var saveAndCloseEl = document.getElementById("cstudioSaveAndClose");
-                        var saveAndPreviewEl = document.getElementById("cstudioSaveAndPreview");
-                        var saveAndCloseDraftEl = document.getElementById("cstudioSaveAndCloseDraft");
-
-                        if(saveAndCloseEl) saveAndCloseEl.disabled = true;
-                        if(saveAndCloseDraftEl) saveAndCloseDraftEl.disabled = true;
-                        if(saveAndPreviewEl) saveAndPreviewEl.disabled = true;
-
-                        saveFn(false, true);
-                    };
-
-
-                    var previewButtonEl = document.createElement("input");
-                    YDom.addClass(previewButtonEl, "btn");
-                    YDom.addClass(previewButtonEl, "btn-default");
-                    YDom.addClass(previewButtonEl, "cstudio-button-first");
-                    previewButtonEl.id = "cstudioSaveAndPreview";
-                    previewButtonEl.style.display = "none";
-                    previewButtonEl.type = "button";
-                    previewButtonEl.value = CMgs.format(formsLangBundle, "saveAndPreview");
-                    formButtonContainerEl.appendChild(previewButtonEl);
-
-                    //In Context Edit, the preview button must not be shown
-                    var iceId = CStudioAuthoring.Utils.getQueryVariable(location.search, "iceId");
-
-                    /*
-                     if(contentType.indexOf("/page") != -1 && iceId === "") {
-                     previewButtonEl.style.display = "inline";
-                     }
-                     */
-
-                    // This is really the right thing to do but previewable doesn't come through
-                    var contentTypeCb = {
-                        success: function(type) {
-                            if(type.previewable && type.previewable == "true") {
-                                previewButtonEl.style.display = "inline";
-                            }
-                        },
-                        failure: function() {
-                        }
-                    };
-
-                    CStudioAuthoring.Service.lookupContentType(CStudioAuthoringContext.site, contentType, contentTypeCb);
-
-                    previewButtonEl.onclick = function() {
-                        saveFn(true, false);
-                    };
-
-                    var cancelButtonEl = document.createElement("input");
-                    cancelButtonEl.id = "cancelBtn";
-                    YDom.addClass(cancelButtonEl, "btn");
-                    YDom.addClass(cancelButtonEl, "btn-default");
-                    cancelButtonEl.type = "button";
-                    cancelButtonEl.value = CMgs.format(formsLangBundle, "cancel");
-                    formButtonContainerEl.appendChild(cancelButtonEl);
-
-                    //YAHOO.util.Event.addListener(window, "beforeunload", beforeUnloadFn, this);
-                    YAHOO.util.Event.addListener(window, "unload",unloadFn, this);
-                    YAHOO.util.Event.addListener(cancelButtonEl, "click", cancelFn, this);
-                } else {
-                    var closeButtonEl = document.createElement("input");
-                    YDom.addClass(closeButtonEl, "btn");
-                    YDom.addClass(closeButtonEl, "btn-default");
-                    closeButtonEl.type = "button";
-                    closeButtonEl.value = CMgs.format(formsLangBundle, "close");
-                    formButtonContainerEl.appendChild(closeButtonEl);
-                    YDom.setStyle(formButtonContainerEl,"text-align","center");
-
-                    //YAHOO.util.Event.addListener(window, "beforeunload", beforeUnloadFn, this);
-                    YAHOO.util.Event.addListener(window, "unload",unloadFn, this);
-                    YAHOO.util.Event.addListener(closeButtonEl, "click", cancelFn, this);
-                }
-                var colExpButtonEl = document.createElement("input");
-                colExpButtonEl.id = "colExpButtonBtn";
-                YDom.addClass(colExpButtonEl, "btn");
-                YDom.addClass(colExpButtonEl, "btn-default");
-                colExpButtonEl.type = "button";
-                colExpButtonEl.value = "Collapse";
-                formControlBarEl.appendChild(colExpButtonEl);
-                YAHOO.util.Event.addListener(colExpButtonEl, "click", collapseFn, this);
-
-                var overlayContainer = parent.document.getElementById(window.frameElement.id).parentElement;
-                YDom.addClass(overlayContainer, "overlay");
-
+                
             },
 
             /**
              * load datasource objects in to form so that fields can attach to them when they load
              */
-            _loadDatasources: function(form) {
-                var formDef = form.definition;
+            _loadDatasources: function(form, callback) {
+                var formDef = form.definition,
+                    loadControl = 0,
+                    loaded = [],
+                    notLoaded = [],
+                    releaseCallback;
+                    
                 form.datasourceMap = {};
 
-                for(var i=0; i < formDef.datasources.length; i++) {
-                    var datasourceDef = formDef.datasources[i];
+                releaseCallback = function(){
+                    if((loaded.length + notLoaded.length) === formDef.datasources.length){
+                        callback(loaded, notLoaded);
+                    }
+                };
 
-                    // initialize each datasource
-                    var cb = {
-                        moduleLoaded: function(moduleName, moduleClass, moduleConfig) {
-                            try {
-                                var datasource = new moduleClass(
-                                    moduleConfig.config.id,
-                                    this.form,
-                                    moduleConfig.config.properties);
-                                form.datasourceMap[datasource.id] = datasource;
-                                amplify.publish("/datasource/loaded", { name: datasource.id});
+                if(0 === formDef.datasources.length){
+                    callback(loaded, notLoaded);
+                }else{
+                    for(var i=0, l=formDef.datasources.length; i < l; i++) {
+                        var datasourceDef = formDef.datasources[i],
+                            script;
+    
+                        script = CStudioAuthoringContext.baseUri + "/static-assets/components/cstudio-forms/data-sources/" + datasourceDef.type + ".js";
+                        script = CStudioAuthoring.Utils.addURLParameter(script, "version", CStudioAuthoring.UIBuildId);
+                        
+                        var onDone = (function(datasourceDef){
+                            return function(script, textStatus){
+                                try {
+    
+                                    if("" === script){
+                                        notLoaded.push(datasourceDef.type);
+                                    }else{
+                                        var moduleClass = CStudioAuthoring.Module.loadedModules["cstudio-forms-controls-" + datasourceDef.type];
+                                        var datasource = new moduleClass(datasourceDef.id, form, datasourceDef.properties);
+                                        form.datasourceMap[datasource.id] = datasource;
+                                        amplify.publish("/datasource/loaded", { name: datasource.id});
+            
+                                        loaded.push(datasourceDef.type);
+                                    }
+                                
+                                    releaseCallback();
+                                }
+                                catch (e) {
+                                    console.log(e);
+                                }
                             }
-                            catch (e) {
-                                //alert(e);
-                            }
-                        },
-
-                        context: this,
-                        form: form
-                    };
-
-                    CStudioAuthoring.Module.requireModule(
-                        "cstudio-forms-controls-" + datasourceDef.type,
-                        '/static-assets/components/cstudio-forms/data-sources/' + datasourceDef.type + ".js",
-                        { config: datasourceDef },
-                        cb);
+                        })(datasourceDef);
+    
+                        if(CStudioAuthoring.Module.loadedModules["cstudio-forms-controls-" + datasourceDef.type]){
+                            onDone();
+                        }else{
+                            jQuery.getScript(script)
+                                .done(onDone)
+                                .fail((function(datasourceDef){
+                                    return function(jqxhr, settings, exception){
+                                        console.log(exeption);
+                                        notLoaded.push(datasourceDef.type);
+                                        releaseCallback();
+                                    }
+                                })(datasourceDef));
+                        }
+                    }
                 }
+                
             },
+            // _loadDatasources: function(form, callback) {
+            //     var formDef = form.definition;
+            //     form.datasourceMap = {};
+
+            //     for(var i=0; i < formDef.datasources.length; i++) {
+            //         var datasourceDef = formDef.datasources[i];
+
+            //         // initialize each datasource
+            //         var cb = {
+            //             moduleLoaded: function(moduleName, moduleClass, moduleConfig) {
+            //                 try {
+            //                     var datasource = new moduleClass(
+            //                         moduleConfig.config.id,
+            //                         this.form,
+            //                         moduleConfig.config.properties);
+            //                     form.datasourceMap[datasource.id] = datasource;
+            //                     amplify.publish("/datasource/loaded", { name: datasource.id});
+            //                 }
+            //                 catch (e) {
+            //                     //alert(e);
+            //                 }
+            //             },
+
+            //             context: this,
+            //             form: form
+            //         };
+
+            //         CStudioAuthoring.Module.requireModule(
+            //             "cstudio-forms-controls-" + datasourceDef.type,
+            //             '/static-assets/components/cstudio-forms/data-sources/' + datasourceDef.type + ".js",
+            //             { config: datasourceDef },
+            //             cb);
+            //     }
+                
+            // },
 
             /**
              * render a form section
@@ -1689,8 +1833,8 @@ var CStudioForms = CStudioForms || function() {
                             containerEl.reRender(containerEl);
 
                             var containerElNodes = $(containerEl.childNodes);
-                            containerElLastChildTop = $(containerElNodes.get(repeatArrayIndex)).offset().top;
-                            $('body').scrollTop(containerElLastChildTop);
+                            containerElLastChildTop = $(containerElNodes.get(repeatArrayIndex+1)).offset().top;
+                            $('html').scrollTop(containerElLastChildTop);
 
                             repeatEdited = true;
                         }
@@ -1714,6 +1858,11 @@ var CStudioForms = CStudioForms || function() {
                             itemArray.splice(repeatArrayIndex, 1);
                             itemArray.splice(repeatArrayIndex-1, 0, itemToMove);
                             containerEl.reRender(containerEl);
+
+                            var containerElNodes = $(containerEl.childNodes);
+                            containerElLastChildTop = $(containerElNodes.get(repeatArrayIndex-1)).offset().top;
+                            $('html').scrollTop(containerElLastChildTop);
+
                             repeatEdited = true;
                         }
                     }
@@ -1736,6 +1885,11 @@ var CStudioForms = CStudioForms || function() {
                             itemArray.splice(repeatArrayIndex, 1);
                             itemArray.splice(repeatArrayIndex+1, 0, itemToMove);
                             containerEl.reRender(containerEl);
+
+                            var containerElNodes = $(containerEl.childNodes);
+                            containerElLastChildTop = $(containerElNodes.get(repeatArrayIndex+1)).offset().top;
+                            $('html').scrollTop(containerElLastChildTop);
+
                             repeatEdited = true;
                         }
                     }
@@ -1755,6 +1909,11 @@ var CStudioForms = CStudioForms || function() {
                             var repeatArrayIndex = this.parentNode._repeatIndex;
                             itemArray.splice(repeatArrayIndex, 1);
                             containerEl.reRender(containerEl);
+
+                            var containerElNodes = $(containerEl.childNodes);
+                            containerElLastChildTop = $(containerElNodes.get(repeatArrayIndex)).offset().top;
+                            $('html').scrollTop(containerElLastChildTop);
+
                             repeatEdited = true;
                         }
                     }
@@ -2275,7 +2434,15 @@ var CStudioForms = CStudioForms || function() {
                         }
                     }
                     catch(repeatErr) {
-                        alert(CMgs.format(formsLangBundle, "errOnRepeat"), ""+repeatErr);
+                        CStudioAuthoring.Operations.showSimpleDialog(
+                            "error-dialog",
+                            CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                            CMgs.format(formsLangBundle, "notification"),
+                            CMgs.format(formsLangBundle, "errOnRepeat"), ""+repeatErr,
+                            null,
+                            YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                            "studioDialog"
+                        );
                     }
                 }
             },
@@ -2334,7 +2501,15 @@ var CStudioForms = CStudioForms || function() {
                                 }
                             }
                             catch(err) {
-                                alert(err)
+                                CStudioAuthoring.Operations.showSimpleDialog(
+                                    "error-dialog",
+                                    CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                                    CMgs.format(formsLangBundle, "notification"),
+                                    err,
+                                    null,
+                                    YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                                    "studioDialog"
+                                );
                             }
                         }
                     }
@@ -2365,7 +2540,15 @@ var CStudioForms = CStudioForms || function() {
                         }
                     }
                     catch(err) {
-                        alert(err);
+                        CStudioAuthoring.Operations.showSimpleDialog(
+                            "error-dialog",
+                            CStudioAuthoring.Operations.simpleDialogTypeINFO,
+                            CMgs.format(formsLangBundle, "notification"),
+                            err,
+                            null,
+                            YAHOO.widget.SimpleDialog.ICON_BLOCK,
+                            "studioDialog"
+                        );
                     }
 
                     // Because we added start and end elements, we can be sure that any field names will
@@ -2464,433 +2647,3 @@ var CStudioForms = CStudioForms || function() {
 
 
 CStudioAuthoring.Module.moduleLoaded("cstudio-forms-engine", CStudioForms);
-// Changes the page location in content edit form
-
-var MGS_COMMUNITIES = [
-	["common_community1", "NA"],
-	["common_community2", "IA"],
-	["common_community3", "NF"],
-	["common_community4", "IF"],
-	["common_community5", "NO"],
-	["common_community6", "IO"]
-];
-
-/**
- * 
- * Display proper community header in edit content forms
- * 
- */
-CStudioForms.engine._getPageLocation = function (path) {
-	var pathStr = path.replace(/^\/site\/website\//, "");
-	pathStr = pathStr.replace(/\//g, " >> ");
-
-	for (var i = 0; i < MGS_COMMUNITIES.length; i++) {
-		var community = MGS_COMMUNITIES[i];
-		var communityName = community[0];
-		var communityAlias = community[1];
-		if (pathStr.indexOf(communityName) != -1) {
-			pathStr = pathStr.replace(communityName, communityAlias);
-		}
-	}
-	return pathStr;
-};
-
-/**
- * Takes page path and transforms url 
- */
-CStudioForms.engine.transformOutboundCommunity = function (path) {
-	var pathStr = path;
-
-	for (var i = 0; i < MGS_COMMUNITIES.length; i++) {
-		var community = MGS_COMMUNITIES[i];
-		var communityName = community[0];
-		var communityAlias = community[1];
-		if (pathStr.indexOf(communityAlias) != -1) {
-			pathStr = pathStr.replace(communityAlias, communityName);
-		}
-	}
-	return pathStr;
-}
-
-/**
- * New method to handle grid checkboxes
- */
-CStudioForms.Util.getGridCheckboxGroups = function (form) {
-	var sections = form.sections,
-		groups = {};
-
-	for (var i = 0; i < sections.length; i++) {
-		for (var j = 0; j < sections[i].fields.length; j++) {
-			var field = sections[i].fields[j];
-			if (field.getName() === 'grid-checkbox') {
-				groups[field.id] = [];
-				var arrKeys = field.getGroups();
-				for (var k = 0; k < arrKeys.length; k++) {
-					groups[field.id].push(arrKeys[k].key);
-				}
-			}
-		}
-	}
-
-	return groups;
-};
-
-CStudioForms.Util.serializeModelToXml = function (form, saveDraft) {
-	var xml = "<" + form.definition.objectType + ">\r\n";
-
-	if (saveDraft) {
-		xml += "\t<savedAsDraft>true</savedAsDraft>";
-	}
-	xml += "\t<content-type>" + form.definition.contentType + "</content-type>";
-
-	if (form.definition.properties && form.definition.properties.length) {
-		for (var i = 0; i < form.definition.properties.length; i++) {
-			var property = form.definition.properties[i];
-			if (property && property.name) {
-				xml += "\t<" + property.name + ">";
-				xml += this.escapeXml(property.value);
-				xml += "</" + property.name + ">\r\n";
-			}
-		}
-	}
-	var groups = this.getGridCheckboxGroups(form); // MGS
-	xml += this.printFieldsToXml(form.model, form.dynamicFields, form.definition.sections, form.definition.config, groups);
-	xml += "</" + form.definition.objectType + ">";
-
-	return xml;
-};
-
-CStudioForms.Util.printFieldsToXml = function (formModel, formDynamicFields, formSections, formConfig, gridCheckboxGroups) {
-	var fieldInstructions = [];
-	var validFields = ['$!', 'objectGroupId', 'objectId', 'folder-name', 'createdDate', 'createdDate_dt', 'lastModifiedDate', 'lastModifiedDate_dt', 'components', 'orderDefault_f', 'placeInNav', 'rteComponents'],
-		output = '',
-		validFieldsStr, fieldRe, fieldRe2, section, fieldReArr = [];
-
-	// Add valid fields from the ones created dynamically by controls
-	if (formDynamicFields && formDynamicFields.length > 0) {
-		validFields = validFields.concat(formDynamicFields);
-	}
-
-	// Add valid fields from form sections
-	for (var i = formSections.length - 1; i >= 0; i--) {
-		section = formSections[i];
-
-		for (var j = section.fields.length - 1; j >= 0; j--) {
-			if (section.fields[j].type === "grid-checkbox") {
-				//validFields.push(section.fields[ j ].id + '-.*');
-
-				//fieldReArr.push(section.fields[ j ].id + '-.*');
-				var fieldId = section.fields[j].id;
-
-				fieldReArr.push("(" + fieldId + "-(" + gridCheckboxGroups[fieldId].join("|") + "))");
-			} else {
-				var field = section.fields[j];
-				validFields.push(section.fields[j].id);
-				var fieldInstruction = {
-					tokenize: false
-				};
-				fieldInstructions[field.id] = fieldInstruction;
-
-				for (var p = 0; p < field.properties.length; p++) {
-					try {
-						var property = field.properties[p];
-						if (property.name == "tokenize" && property.value == "true") {
-							fieldInstruction.tokenize = true;
-						}
-					} catch (err) {
-						alert(err)
-					}
-				}
-			}
-		}
-	}
-
-	if (fieldReArr.length > 0) {
-		fieldRe2 = new RegExp(fieldReArr.join('|'));
-	}
-
-	// Add valid fields from form config
-	if (formConfig && formConfig.customFields) {
-		for (var i in formConfig.customFields) {
-			if (formConfig.customFields.hasOwnProperty(i)) {
-				if (formConfig.customFields[i].removeOnChangeType == 'false') {
-					validFields.push(formConfig.customFields[i].name);
-				}
-			}
-		}
-	}
-
-	validFields.push('$!'); // End element
-	validFieldsStr = validFields.join(",");
-
-	for (var key in formModel) {
-		var attributes = "";
-		var fieldInstruction = fieldInstructions[key];
-		var invalidFields = [];
-
-		try {
-			if (fieldInstruction && fieldInstruction.tokenize == true) {
-				attributes += " tokenized='true' ";
-			}
-		} catch (err) {
-			alert(err);
-		}
-
-		// Because we added start and end elements, we can be sure that any field names will
-		// be delimited by the delimiter token (ie. comma)
-		fieldRe = new RegExp("," + key + "(?:,|\|\d+\|)", "g");
-
-		if (fieldRe.test(validFieldsStr) || (fieldRe2 && fieldRe2.test(key))) {
-			var modelItem = formModel[key];
-
-			if (Object.prototype.toString.call(modelItem) === '[object Array]') {
-				output += "\t<" + key + " " + attributes + " >";
-				for (var j = 0; j < modelItem.length; j++) {
-					output += "\t<item>";
-					var repeatItem = modelItem[j];
-					for (var repeatKey in repeatItem) {
-						var repeatValue = modelItem[j][repeatKey];
-
-						output += "\t<" + repeatKey + ">";
-						if (Object.prototype.toString.call(repeatValue).indexOf('[object Array]') != -1) {
-							for (var k = 0; k < repeatValue.length; k++) {
-								var subModelItem = repeatValue[k];
-								output += "\t\t<item>";
-								for (var subRepeatKey in subModelItem) {
-									var subRepeatValue = subModelItem[subRepeatKey];
-									output += "<" + subRepeatKey + ">";
-									output += this.escapeXml(subRepeatValue);
-									output += "</" + subRepeatKey + ">\r\n";
-								}
-								output += "\t\t</item>";
-							}
-						} else {
-							output += this.escapeXml(repeatValue);
-						}
-						output += "</" + repeatKey + ">\r\n";
-					}
-					output += "\t</item>";
-				}
-				output += "</" + key + ">\r\n";
-			} else {
-				output += "\t<" + key + " " + attributes + " >"
-				output += this.escapeXml(modelItem);
-				output += "</" + key + ">\r\n";
-			}
-		} else {
-			invalidFields[invalidFields.length] = key;
-		}
-	}
-
-	// TODO: This needs the code above to be move in to a reusable place and then placed
-	// outside the save process so that user has a choice to cancel.
-	// this also needs a real dialog and more information about the fields 
-	// instead of an ugly system name
-	//if(invalidFields.length > 0) {
-	//    var invalidFieldsMsg = 
-	//    "The following fields were found in the content due to a model change and will not be saved: \n";
-	//    for(var g=0; g<invalidFields.length; g++) {
-	//       invalidFieldsMsg + "\t"+invalidFields[length]+"\n";
-	//    }
-	//    alert(invalidFieldsMsg);
-	//}
-
-	return output;
-}
-
-CStudioForms.CStudioForm.prototype.getModelValue = function (id) {
-    var value = null;
-    if (id.indexOf("|") != -1) {
-        var parts = id.split("|");
-        var repeatGroup = parts[0];
-        var repeatIndex = parseInt(parts[1]);
-        var repeatField = parts[2];
-
-        if (this.model[repeatGroup].length > 0 && (this.model[repeatGroup][repeatIndex] != null || this.model[repeatGroup][repeatIndex] != undefined)) {
-            // MGS: it should be returned not assigned
-			value = this.model[repeatGroup][repeatIndex][repeatField];
-        }
-    } else {
-        value = this.model[id];
-    }
-
-    return value;
-};
-
-
-//MGS: print the number/position of each repeating group at standards - MISR-90
-CStudioForms.engine._renderRepeatBody = function(repeatContainerEl) {
-    var CMgs = CStudioAuthoring.Messages;
-    var formsLangBundle = CMgs.getBundle("forms", CStudioAuthoringContext.lang);
-    var maxOccurs = repeatContainerEl.maxOccurs;
-    var minOccurs = repeatContainerEl.minOccurs;
-    var formDef = repeatContainerEl.formDef;
-    var repeat = repeatContainerEl.repeat;
-    var form = repeatContainerEl.form;
-    var formSection = repeatContainerEl.formSection;
-    var sectionEl = repeatContainerEl.sectionEl;
-    var containerEl = repeatContainerEl;
-    var self = this;
-
-    // render with items
-    var currentCount = (form.model[repeat.id]) ? form.model[repeat.id].length : 0;
-    var repeatCount = (currentCount > minOccurs) ? currentCount : minOccurs;
-
-    //handle case where there are no ites
-    if((minOccurs == 0 && !form.model[repeat.id]) || repeatCount == 0) {
-        var repeatInstanceContainerEl = document.createElement("div");
-        repeatContainerEl.appendChild(repeatInstanceContainerEl);
-        YAHOO.util.Dom.addClass(repeatInstanceContainerEl, 'cstudio-form-repeat-container');
-        repeatInstanceContainerEl._repeatIndex = 0;
-
-        var titleEl = document.createElement("span");
-        repeatInstanceContainerEl.appendChild(titleEl);
-        YAHOO.util.Dom.addClass(titleEl, 'cstudio-form-repeat-title');
-        titleEl.innerHTML = repeat.title;
-
-        var addEl = document.createElement("a");
-        repeatInstanceContainerEl.appendChild(addEl);
-        YAHOO.util.Dom.addClass(addEl, 'cstudio-form-repeat-control');
-        addEl.innerHTML = "Add First Item";
-        addEl.onclick = function() {
-            repeatContainerEl.form.setFocusedField(repeatContainerEl);
-            form.model[repeat.id] = [];
-            form.model[repeat.id][0] = [];
-
-            this.parentNode.parentNode.reRender(this.parentNode.parentNode);
-        }
-
-        formSection.notifyValidation();
-        return;
-    }
-
-    if(!form.model[repeat.id]) {
-        form.model[repeat.id] = [];
-    }
-
-    if(currentCount < minOccurs) {
-        var count = minOccurs - currentCount;
-        for(var j=0; j<count; j++) {
-            form.model[repeat.id][form.model[repeat.id].length] = []
-        }
-    }
-
-
-
-    for(var i=0; i<repeatCount; i++) {
-        var repeatInstanceContainerEl = document.createElement("div");
-        YAHOO.util.Dom.addClass(repeatInstanceContainerEl, 'cstudio-form-repeat-container');
-        repeatInstanceContainerEl._repeatIndex = i;
-
-        //
-        var flagCount = document.createElement("h4");
-        repeatInstanceContainerEl.appendChild(flagCount);
-        YAHOO.util.Dom.addClass(flagCount, 'cstudio-form-repeat-counter-flag');
-        flagCount.innerHTML = i+1;
-        //
-
-        var titleEl = document.createElement("span");
-        repeatInstanceContainerEl.appendChild(titleEl);
-        YAHOO.util.Dom.addClass(titleEl, 'cstudio-form-repeat-title');
-        titleEl.innerHTML = repeat.title;
-
-        var addEl = document.createElement("a");
-        repeatInstanceContainerEl.appendChild(addEl);
-        YAHOO.util.Dom.addClass(addEl, 'cstudio-form-repeat-control');
-        addEl.innerHTML = CMgs.format(formsLangBundle, "repeatAddAnother");
-
-        if(form.readOnly || maxOccurs != "*" && currentCount >= maxOccurs) {
-            YAHOO.util.Dom.addClass(addEl, 'cstudio-form-repeat-control-disabled');
-        }
-        else {
-            addEl.onclick = function() {
-                form.onBeforeUiRefresh();
-                repeatContainerEl.form.setFocusedField(repeatContainerEl);
-                var itemArray = form.model[repeat.id];
-                var repeatArrayIndex = this.parentNode._repeatIndex;
-                itemArray.splice(repeatArrayIndex+1, 0, []);
-                containerEl.reRender(containerEl);
-
-                var containerElNodes = $(containerEl.childNodes);
-                containerElLastChildTop = $(containerElNodes.get(repeatArrayIndex)).offset().top;
-                $('body').scrollTop(containerElLastChildTop);
-
-                repeatEdited = true;
-            }
-        }
-
-        var upEl = document.createElement("a");
-        repeatInstanceContainerEl.appendChild(upEl);
-        YAHOO.util.Dom.addClass(upEl, 'cstudio-form-repeat-control');
-        upEl.innerHTML = CMgs.format(formsLangBundle, "repeatMoveUp");
-        if(form.readOnly || i == 0) {
-            YAHOO.util.Dom.addClass(upEl, 'cstudio-form-repeat-control-disabled');
-        }
-        else {
-            upEl.onclick = function() {
-                //form.setFocusedField(null);
-                repeatContainerEl.form.setFocusedField(repeatContainerEl);
-                form.onBeforeUiRefresh();
-                var itemArray = form.model[repeat.id];
-                var repeatArrayIndex = this.parentNode._repeatIndex;
-                var itemToMove = itemArray[repeatArrayIndex];
-                itemArray.splice(repeatArrayIndex, 1);
-                itemArray.splice(repeatArrayIndex-1, 0, itemToMove);
-                containerEl.reRender(containerEl);
-                repeatEdited = true;
-            }
-        }
-
-        var downEl = document.createElement("a");
-        repeatInstanceContainerEl.appendChild(downEl);
-        YAHOO.util.Dom.addClass(downEl, 'cstudio-form-repeat-control');
-        downEl.innerHTML = CMgs.format(formsLangBundle, "repeatMoveDown");
-        if(form.readOnly || i == repeatCount-1) {
-            YAHOO.util.Dom.addClass(downEl, 'cstudio-form-repeat-control-disabled');
-        }
-        else {
-            downEl.onclick = function() {
-                //form.setFocusedField(null);
-                repeatContainerEl.form.setFocusedField(repeatContainerEl);
-                form.onBeforeUiRefresh();
-                var itemArray = form.model[repeat.id];
-                var repeatArrayIndex = this.parentNode._repeatIndex;
-                var itemToMove = itemArray[repeatArrayIndex];
-                itemArray.splice(repeatArrayIndex, 1);
-                itemArray.splice(repeatArrayIndex+1, 0, itemToMove);
-                containerEl.reRender(containerEl);
-                repeatEdited = true;
-            }
-        }
-
-        var deleteEl = document.createElement("a");
-        repeatInstanceContainerEl.appendChild(deleteEl);
-        YAHOO.util.Dom.addClass(deleteEl, 'cstudio-form-repeat-control');
-        deleteEl.innerHTML = CMgs.format(formsLangBundle, "repeatDelete");
-        if(form.readOnly || currentCount <= minOccurs) {
-            YAHOO.util.Dom.addClass(deleteEl, 'cstudio-form-repeat-control-disabled');
-        }
-        else {
-            deleteEl.onclick = function() {
-                repeatContainerEl.form.setFocusedField(repeatContainerEl);
-                form.onBeforeUiRefresh();
-                var itemArray = form.model[repeat.id];
-                var repeatArrayIndex = this.parentNode._repeatIndex;
-                itemArray.splice(repeatArrayIndex, 1);
-                containerEl.reRender(containerEl);
-                repeatEdited = true;
-            }
-        }
-
-        // Insert the repeat group instance to the DOM as late in the process as possible
-        repeatContainerEl.appendChild(repeatInstanceContainerEl);
-
-        for(var j=0; j<repeat.fields.length; j++) {
-            var field = repeat.fields[j];
-
-            this._renderField(formDef, field, form, formSection, repeatInstanceContainerEl, repeat, i);
-            
-        }
-    }
-    
-}
